@@ -32,16 +32,19 @@ A bash wrapper over dd and cdrkit to burn/rip ISO images
 # OPERATIONS
 
     rip <image>
-
     burn <image>
 
 # Examples
 
 * burn image "sample.iso", using the optical device /dev/sr0
 
+code:
+
     baisho -d /dev/sr0 burn "sample.iso"
 
 * burn image "sample.iso"
+
+code:
 
     baisho burn "sample.iso"
 
@@ -49,17 +52,24 @@ If no device is explicitly specified and there are multiple devices in the syste
 then user is prompted to select. If there is only one system device then it is used
 by default.
 
+
 * rip from default system device in /tmp/img.iso
+
+code:
 
     baisho rip "/tmp/img.iso"
 
-If image already exists then user is prompted to overwrite
+If image already exists then user is prompted to overwrite.
 
 * rip from /der/sr0 to /tmp/img.iso and calculate checksums
+
+code:
 
     baisho rip -s -d /dev/sr0 "/tmp/img.iso"
 
 * list all system optical devices reported by udisks
+
+code:
 
     baisho -l
 
