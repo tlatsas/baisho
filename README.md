@@ -8,7 +8,7 @@ it provides a simple interface to :
 
 the idea was taken from the Linux Journal article:
 
-Archiving CDs to ISO from the Command Line [1]
+[Archiving CDs to ISO from the Command Line] [1]
 
 [1]: http://www.linuxjournal.com/content/archiving-cds-iso-commandline
 
