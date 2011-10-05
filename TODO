@@ -1,0 +1,5 @@
+* check for empty block size
+* check for empty block count
+* add support for mkisofs to create iso from folders
+* check exit status of dd
+* calculate md5sums after burning

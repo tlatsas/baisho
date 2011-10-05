@@ -1,0 +1,252 @@
+#!/bin/bash
+
+# baisho is a bash wrapper over dd and cdrkit with a cool name
+# it supports iso image burning and disc ripping
+#
+# author: Tasos Latsas
+# tlatsas _at_ users _dot_ sf.net
+
+_wodim=$(which wodim) || exit 1
+_isoinfo=$(which isoinfo) || exit 1
+
+declare -a optical
+
+print_help() {
+    cat << EOF
+usage: $0 [ OPTIONS ] [ rip | burn ] <image>
+
+A bash wrapper over dd and cdrkit to burn/rip ISO images
+
+
+[ OPTIONS ]
+  -h    Show this message
+  -l    List available optical devices
+  -d    Device target to use as CD/DVD
+  -s    Show md5 checksums of disc and image after burn or rip
+
+[ rip | burn ] <image>
+  rip   Rip disc to <image>
+  burn  Burn <image> to physical medium
+
+EOF
+}
+
+die() {
+    echo "Quiting, bye."
+    exit 1
+}
+
+get_optical_devices() {
+    # query udisks for an optical device list (taken from bashmount project)
+    optical=( $(udisks --enumerate-device-files | grep -ow -E ^/dev/sr[0-9]+) )
+}
+
+print_optical_devices() {
+    echo "Optical devices found"
+    echo "====================="
+    local -i count=0
+    for dev in ${optical[@]}; do
+        echo -n "  ${count} : "; echo $dev
+        let count++
+    done
+    echo "====================="
+}
+
+choose_device() {
+    # prompt user to select optical device
+    max_dev=${#optical[@]}
+    let max_dev--
+
+    echo -n "Select device number [0-${max_dev}] > "
+    read dev_num
+
+    if [[ ! $dev_num =~ ^[0-${max_dev}]$ ]]; then
+        echo "Wrong device number, aborting..."
+        exit 1
+    fi
+
+    return $dev_num
+}
+
+get_block_size() {
+    block_size=$( ${_isoinfo} -d -i ${device} | grep "^Logical" | cut -d' ' -f 5 )
+}
+
+get_block_count() {
+    block_count=$( ${_isoinfo} -d -i ${device} | grep "^Volume size" | cut -d' ' -f 4 )
+}
+
+print_md5_iso() {
+    echo ">> Calculating image md5 sum, please wait..."
+    _s=$( md5sum ${1} | cut -d ' ' -f 1 )
+    echo "ISO md5 sum is : $_s"
+}
+
+print_md5_disc() {
+    echo ">> Calculating disc md5 sum, please wait..."
+    _s=$( dd if=${1} bs=${2} count=${3} 2> /dev/null | md5sum | cut -d ' ' -f 1 )
+    echo "Disc md5 sum is: $_s"
+}
+
+check_device() {
+    if [[ ! -b ${1} ]]; then
+        echo "'${1}' does not appear to be a block device"
+        exit 1
+    fi
+}
+
+rip_to_iso() {
+    dd if=${1} bs=${2} count=${3} of="${4}" 2> /dev/null
+}
+
+burn_to_disc() {
+    $_wodim -v -dev=${1} "${2}"
+}
+
+process_answer() {
+    # return codes:
+    #  0 - answered no
+    #  1 - answered yes
+    #  2 - bail out
+    read selection
+    case ${selection} in
+        y|Y)
+            echo "Please use 'yes' not 'y'."
+            return 2
+            ;;
+        yes|YES)
+            return 1
+            ;;
+        no|n|NO|N|No)
+            return 0
+            ;;
+        q|Q|quit|Quit|QUIT)
+            return 2
+            ;;
+        *)
+            return 2
+            ;;
+    esac
+}
+
+# -- function declaration end --
+
+# default values
+get_sums=0
+device=''
+
+while getopts ":hld:s" options; do
+    case ${options} in
+        h)
+            print_help
+            exit 0
+            ;;
+        l)
+            get_optical_devices
+            print_optical_devices
+            exit 0
+            ;;
+        d)
+            device=${OPTARG}
+            check_device $device
+            ;;
+        s)
+            get_sums=1
+            ;;
+        \?)
+            echo "Invalid option: -${OPTARG}" >&2
+            exit 1
+            ;;
+        :)
+            echo "Option -${OPTARG} requires an argument." >&2
+            exit 1
+            ;;
+    esac
+done
+
+# shift parameters
+shift $(( OPTIND-1 ))
+
+# validate positional arguments
+case "${1}" in
+    burn|rip)
+        command="${1}"
+        if [[ -z "${2}" ]]; then
+            echo "Please specify an ISO image."
+            die
+        fi
+        iso="${2}"
+        ;;
+    *)
+        echo "Unrecognised command '${1}'."
+        die
+esac
+
+# get a valid device if we don't already have one
+if [[ -z $device ]]; then
+    get_optical_devices
+
+    case ${#optical[@]} in
+        0)
+            echo "No optical devices detected"
+            echo "Try supplying one using '-d'."
+            die
+            ;;
+        1)
+            device=${optical[0]}
+            ;;
+        *)
+            echo "Multiple devices found."
+            echo ""
+            print_optical_devices
+            choose_device
+            device=${optical[$?]}
+            ;;
+    esac
+fi
+
+case $command in
+    burn)
+        # check that image exists and is a file
+        if [[ ! -f $iso ]]; then
+            echo "Cannot open image '${iso}' for reading..."
+            die
+        fi
+
+        burn_to_disc $device "${iso}"
+        ;;
+    rip)
+        # safeguard for block devices
+        if [[ -b "${iso}" ]]; then
+            echo "Image is a block device"
+            die
+        fi
+
+        # don't automatically overwrite existing images
+        if [[ -e $iso ]]; then
+            echo "Image already exists"
+            echo -n "Overwite? [yes/no/q] > "
+
+            process_answer
+            [[ ! $? -eq 1 ]] && die
+        fi
+
+        # gather disc info
+        get_block_size
+        get_block_count
+
+        # rip disc
+        echo -n ">> Ripping $device to ${iso} ... "
+        rip_to_iso $device $block_size $block_count "${iso}"
+        echo "DONE"
+
+        # calculate md5sums
+        if [[ $get_sums -eq 1 ]]; then
+            print_md5_iso "${iso}"
+            print_md5_disc $device $block_size $block_count
+        fi
+        ;;
+esac
+
+exit 0
+# vim: ts=4 sw=4 et:
