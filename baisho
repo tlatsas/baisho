@@ -172,15 +172,11 @@ shift $(( OPTIND-1 ))
 case "${1}" in
     burn|rip)
         command="${1}"
-        if [[ -z "${2}" ]]; then
-            echo "Please specify an ISO image."
-            die
-        fi
+        [[ -z "${2}" ]] && die "Unknown ISO image"
         iso="${2}"
         ;;
     *)
-        echo "Unrecognised command '${1}'."
-        die
+        die "Unrecognised command '${1}'."
 esac
 
 # get a valid device if we don't already have one
@@ -189,9 +185,7 @@ if [[ -z $device ]]; then
 
     case ${#optical[@]} in
         0)
-            echo "No optical devices detected"
-            echo "Try supplying one using '-d'."
-            die
+            die "No optical devices detected"
             ;;
         1)
             device=${optical[0]}
@@ -209,19 +203,13 @@ fi
 case $command in
     burn)
         # check that image exists and is a file
-        if [[ ! -f $iso ]]; then
-            echo "Cannot open image '${iso}' for reading..."
-            die
-        fi
+        [[ ! -f $iso ]] && die "Cannot open image '${iso}' for reading..."
 
         burn_to_disc $device "${iso}"
         ;;
     rip)
         # safeguard for block devices
-        if [[ -b "${iso}" ]]; then
-            echo "Image is a block device"
-            die
-        fi
+        [[ -b "${iso}" ]] && die "Image is a block device"
 
         # don't automatically overwrite existing images
         if [[ -e $iso ]]; then
