@@ -234,7 +234,10 @@ case $command in
 
         # gather disc info
         get_block_size
+        [[ -z ${block_size} ]] && die "Cannot get block size"
+
         get_block_count
+        [[ -z ${block_count} ]] && die "Cannot get block count"
 
         # rip disc
         echo -n ">> Ripping $device to ${iso} ... "
