@@ -32,7 +32,8 @@ EOF
 }
 
 die() {
-    echo "Quiting, bye."
+    # quit with msg supplied
+    echo -e "ERROR: ${1}\nQuit"
     exit 1
 }
 
