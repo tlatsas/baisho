@@ -32,9 +32,15 @@ EOF
 }
 
 die() {
-    # quit with msg supplied
+    # quit after displaying supplied error message
     echo -e "ERROR: ${1}\nQuit"
     exit 1
+}
+
+quit() {
+    # quit without error
+    echo "Quiting, bye"
+    exit 0
 }
 
 get_optical_devices() {
