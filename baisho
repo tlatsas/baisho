@@ -223,7 +223,7 @@ case $command in
             echo -n "Overwite? [yes/no/q] > "
 
             process_answer
-            [[ ! $? -eq 1 ]] && die
+            [[ ! $? -eq 1 ]] && quit
         fi
 
         # gather disc info
